@@ -1,7 +1,7 @@
 {
-    "name": "wordpress/installer",
+    "name": "cmandersen/wordpress-installer",
     "description": "Wordpress CMS installer.",
-    "keywords": ["wordpress"],
+    "keywords": ["wordpress", "installer"],
     "license": "MIT",
     "authors": [
         {
