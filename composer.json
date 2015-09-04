@@ -1,0 +1,25 @@
+{
+    "name": "wordpress/installer",
+    "description": "Wordpress CMS installer.",
+    "keywords": ["wordpress"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Christian Amdersem",
+            "email": "christian@cmandersen.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Wordpress\\Installer\\Console\\": "src/"
+        }
+    },
+    "require": {
+        "guzzlehttp/guzzle": "~4.0|~5.0",
+        "symfony/console": "~2.3",
+        "symfony/process": "~2.3"
+    },
+    "bin": [
+        "wordpress"
+    ]
+}
