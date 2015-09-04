@@ -1,6 +1,18 @@
 # Wordpress installer
 
-The purpose of this project, is to build an installer ala the Laravel installer: `laravel new PROJECT_NAME`
+This package works as an installer for the Wordpress CMS.
 
-The package will be used in the same fashion: `wordpress new PROJECT_NAME`.  
-I'm considering adding a function to run the Wordpress setup through the console, after you've created the project.
+## Installation
+Download the Wordpress installer via Composer:
+```
+composer global require cmandersen/wordpress-installer
+```
+
+Make sure to place the `~/.composer/vendor/bin` directory in your PATH so the `wordpress` executable can be located by your system.
+
+## Usage
+Once installed, the simple `wordpress new` command will create a fresh Wordpress installation in the directory you specify. For instance, `wordpress new blog` will create a directory named blog containing a fresh Wordpress installation.
+
+```
+wordpress new blog
+```
