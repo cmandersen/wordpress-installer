@@ -19,6 +19,7 @@
         "symfony/console": "~2.3",
         "symfony/process": "~2.3"
     },
+    "minimum-stability": "stable",
     "bin": [
         "wordpress"
     ]
