@@ -16,3 +16,8 @@ Once installed, the simple `wordpress new` command will create a fresh Wordpress
 ```
 wordpress new blog
 ```
+
+After Wordpress has been downloaded and unpacked, the script will then offer installing Wordpress. It will ask you for
+the information it needs (database name, username etc.)
+
+If you don't want to deal with it, you can either answer "no" or run the command with the `--no-setup` parameter. 
