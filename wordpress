@@ -1,6 +1,9 @@
 #!/usr/bin/env php
 <?php
 
+// We have to set this global variable. Wordpress is not awesome.
+$table_prefix = 'wp_';
+
 if (file_exists(__DIR__.'/../../autoload.php')) {
     require __DIR__.'/../../autoload.php';
 } else {
