@@ -3,9 +3,11 @@
     "description": "Wordpress CMS installer.",
     "keywords": ["wordpress", "installer"],
     "license": "MIT",
+    "version": "1.1.0",
+    "minimum-stability": "stable",
     "authors": [
         {
-            "name": "Christian Andersen",
+            "name": "Christian Morgan Andersen",
             "email": "christian@cmandersen.com"
         }
     ],
@@ -19,7 +21,6 @@
         "symfony/console": "~2.3",
         "symfony/process": "~2.3"
     },
-    "minimum-stability": "stable",
     "bin": [
         "wordpress"
     ]
