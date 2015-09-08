@@ -161,34 +161,15 @@ class NewCommand extends Command
         if($this->helper->ask($this->input, $this->output, $confirmation)) {
             $this->output->writeln('Starting Wordpress set up...');
 
-            $dbname = new Question('Please enter the name of the database (<comment>default:</comment> <info>wordpress</info>): ', 'wordpress');
-            $dbuser = new Question('Please enter the name of the database user (<comment>default:</comment> <info>homestead</info>): ', 'homestead');
-            $dbpass = new Question('Please enter the database password (<comment>default:</comment> <info>secret</info>): ', 'secret');
-            $dbpass->setHidden(true);
-            $dbpass->setHiddenFallback(false);
-            $dbhost = new Question('Please enter the database host (<comment>default:</comment> <info>localhost</info>): ', 'localhost');
-            $dbpref = new Question('Please enter the table prefix (<comment>default:</comment> <info>wp_</info>): ', 'wp_');
-
-            $dbname = $this->helper->ask($this->input, $this->output, $dbname);
-            $dbuser = $this->helper->ask($this->input, $this->output, $dbuser);
-            $dbpass = $this->helper->ask($this->input, $this->output, $dbpass);
-            $dbhost = $this->helper->ask($this->input, $this->output, $dbhost);
-            $table_prefix = $this->helper->ask($this->input, $this->output, $dbpref);
-
-            define('DB_NAME', $dbname);
-            define('DB_USER', $dbuser);
-            define('DB_PASSWORD', $dbpass);
-            define('DB_HOST', $dbhost);
-
             define('WP_INSTALLING', true);
             define('WP_SETUP_CONFIG', true);
 
-            define( 'ABSPATH', dirname( dirname( __FILE__ ) ) . '/'.$this->input->getArgument('name').'/' );
+            define( 'ABSPATH', getcwd() . '/'.$this->input->getArgument('name').'/' );
 
-            require( ABSPATH . 'wp-settings.php' );
+            require_once( ABSPATH . 'wp-settings.php' );
             require_once( ABSPATH . '/wp-admin/includes/upgrade.php' );
 
-            $success = $this->testDatabaseConnection();
+            $success = $this->setupDatabase();
 
             $this->createConfig();
 
@@ -198,14 +179,42 @@ class NewCommand extends Command
         }
     }
 
+    protected function setupDatabase() {
+        global $table_prefix;
+
+        $dbname = new Question('Please enter the name of the database (<comment>default:</comment> <info>wordpress</info>): ', 'wordpress');
+        $dbuser = new Question('Please enter the name of the database user (<comment>default:</comment> <info>homestead</info>): ', 'homestead');
+        $dbpass = new Question('Please enter the database password (<comment>default:</comment> <info>secret</info>): ', 'secret');
+        $dbhost = new Question('Please enter the database host (<comment>default:</comment> <info>localhost</info>): ', 'localhost');
+        $dbpref = new Question('Please enter the table prefix (<comment>default:</comment> <info>wp_</info>): ', 'wp_');
+
+        $dbname = $this->helper->ask($this->input, $this->output, $dbname);
+        $dbuser = $this->helper->ask($this->input, $this->output, $dbuser);
+        $dbpass = $this->helper->ask($this->input, $this->output, $dbpass);
+        $dbhost = $this->helper->ask($this->input, $this->output, $dbhost);
+        $table_prefix = $this->helper->ask($this->input, $this->output, $dbpref);
+
+        $success = $this->testDatabaseConnection($dbuser, $dbpass, $dbname, $dbhost, $table_prefix);
+
+        if(!$success) {
+            return $this->setupDatabase();
+        }
+
+        define('DB_NAME', $dbname);
+        define('DB_USER', $dbuser);
+        define('DB_PASSWORD', $dbpass);
+        define('DB_HOST', $dbhost);
+
+        return true;
+    }
+
     /**
      * Check if we can connect to the database
      *
      * @return bool
      */
-    protected function testDatabaseConnection() {
-        global $table_prefix;
-        $wpdb = new \wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
+    protected function testDatabaseConnection($dbuser, $dbpass, $dbname, $dbhost, $table_prefix) {
+        $wpdb = new \wpdb( $dbuser, $dbpass, $dbname, $dbhost );
         $wpdb->db_connect();
         $wpdb->prefix = $table_prefix;
         $wpdb->base_prefix = $table_prefix;
