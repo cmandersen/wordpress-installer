@@ -7,6 +7,8 @@ use Symfony\Component\Console\Question\ConfirmationQuestion;
 use ZipArchive;
 use RuntimeException;
 use GuzzleHttp\Client;
+use GuzzleHttp\Subscriber\Progress\Progress;
+use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Question\Question;
 use Symfony\Component\Console\Input\InputArgument;
@@ -101,7 +103,16 @@ class NewCommand extends Command
      */
     protected function download($zipFile)
     {
-        $response = (new Client)->get('https://wordpress.org/latest.zip');
+        $uploadProgress = function() {};
+        $progressBar = new ProgressBar($this->output, 100);
+        $progressBar->start();
+        $downloadProgress = function($expected, $total, $client, $request, $res) use ($progressBar) {
+            $progressBar->setProgress(floor(100 * ($total / $expected)));
+        };
+        $progress = new Progress($uploadProgress, $downloadProgress);
+        $response = (new Client)->get('https://wordpress.org/latest.zip', ['subscribers' => [$progress]]);
+        $progressBar->finish();
+        $this->output->writeln('');
 
         file_put_contents($zipFile, $response->getBody());
 
@@ -156,7 +167,6 @@ class NewCommand extends Command
      */
     protected function setup()
     {
-        global $table_prefix;
         $confirmation = new ConfirmationQuestion('Do you want to set up Wordpress now? <comment>[<info>yes</info>/no]</comment> ');
         if($this->helper->ask($this->input, $this->output, $confirmation)) {
             $this->output->writeln('Starting Wordpress set up...');
