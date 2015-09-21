@@ -2,18 +2,19 @@
 
 namespace Wordpress\Installer\Console;
 
-use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Question\ConfirmationQuestion;
-use ZipArchive;
-use RuntimeException;
 use GuzzleHttp\Client;
 use GuzzleHttp\Subscriber\Progress\Progress;
-use Symfony\Component\Console\Helper\ProgressBar;
+use RuntimeException;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Question\Question;
+use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Question\ConfirmationQuestion;
+use Symfony\Component\Console\Question\Question;
+use Symfony\Component\Process\Process;
+use ZipArchive;
 
 class NewCommand extends Command
 {
@@ -27,6 +28,7 @@ class NewCommand extends Command
      */
     protected $input;
     protected $helper;
+    protected $wp;
 
     /**
      * Configure the command options.
@@ -54,6 +56,7 @@ class NewCommand extends Command
         $this->output = $output;
         $this->input = $input;
         $this->helper = $this->getHelper('question');
+        $this->wp = preg_replace('~wordpress$~', '', get_included_files()[0])."vendor/bin/wp";
         $this->verifyApplicationDoesntExist(
             $directory = getcwd().'/'.$this->input->getArgument('name'),
             $output
@@ -68,7 +71,12 @@ class NewCommand extends Command
         $this->output->writeln('<comment>Wordpress is ready!</comment>');
 
         if(!$this->input->getOption('no-setup')) {
-            $this->setup();
+            $confirmation = new ConfirmationQuestion('Do you want to set up Wordpress now? <comment>[<info>yes</info>/no]</comment> ');
+            if($this->helper->ask($this->input, $this->output, $confirmation)) {
+                $this->createConfig()
+                     ->installWordpress();
+            }
+
         }
     }
 
@@ -162,36 +170,7 @@ class NewCommand extends Command
         return $this;
     }
 
-    /**
-     * Start the setup of Wordpress
-     */
-    protected function setup()
-    {
-        $confirmation = new ConfirmationQuestion('Do you want to set up Wordpress now? <comment>[<info>yes</info>/no]</comment> ');
-        if($this->helper->ask($this->input, $this->output, $confirmation)) {
-            $this->output->writeln('Starting Wordpress set up...');
-
-            define('WP_INSTALLING', true);
-            define('WP_SETUP_CONFIG', true);
-
-            define( 'ABSPATH', getcwd() . '/'.$this->input->getArgument('name').'/' );
-
-            require_once( ABSPATH . 'wp-settings.php' );
-            require_once( ABSPATH . '/wp-admin/includes/upgrade.php' );
-
-            $success = $this->setupDatabase();
-
-            $this->createConfig();
-
-            if($success) {
-                $this->installWordpress();
-            }
-        }
-    }
-
-    protected function setupDatabase() {
-        global $table_prefix;
-
+    protected function createConfig() {
         $dbname = new Question('Please enter the name of the database (<comment>default:</comment> <info>wordpress</info>): ', 'wordpress');
         $dbuser = new Question('Please enter the name of the database user (<comment>default:</comment> <info>homestead</info>): ', 'homestead');
         $dbpass = new Question('Please enter the database password (<comment>default:</comment> <info>secret</info>): ', 'secret');
@@ -204,49 +183,16 @@ class NewCommand extends Command
         $dbhost = $this->helper->ask($this->input, $this->output, $dbhost);
         $table_prefix = $this->helper->ask($this->input, $this->output, $dbpref);
 
-        $success = $this->testDatabaseConnection($dbuser, $dbpass, $dbname, $dbhost, $table_prefix);
+        $process = new Process("{$this->wp} core config --dbname={$dbname} --dbuser={$dbuser} --dbpass={$dbpass} --dbhost={$dbhost} --dbprefix={$table_prefix}", $this->input->getArgument('name'));
+        $process->run();
 
-        if(!$success) {
-            return $this->setupDatabase();
+        if(!$process->isSuccessful()) {
+            $this->output->writeln('<error>'.$process->getErrorOutput().'</error>');
+
+            return $this->createConfig();
         }
 
-        define('DB_NAME', $dbname);
-        define('DB_USER', $dbuser);
-        define('DB_PASSWORD', $dbpass);
-        define('DB_HOST', $dbhost);
-
-        return true;
-    }
-
-    /**
-     * Check if we can connect to the database
-     *
-     * @return bool
-     */
-    protected function testDatabaseConnection($dbuser, $dbpass, $dbname, $dbhost, $table_prefix) {
-        $wpdb = new \wpdb( $dbuser, $dbpass, $dbname, $dbhost );
-        $wpdb->db_connect();
-        $wpdb->prefix = $table_prefix;
-        $wpdb->base_prefix = $table_prefix;
-
-        foreach($wpdb->tables as $table) {
-            $wpdb->$table = $table_prefix.$table;
-        }
-
-        foreach($wpdb->global_tables as $table) {
-            $wpdb->$table = $table_prefix.$table;
-        }
-
-        $GLOBALS['wpdb'] = $wpdb;
-
-        $success = empty($wpdb->error);
-
-        if ( ! $success )
-            $this->output->writeln('<error>Database information incorrect!</error>');
-        else
-            $this->output->writeln('<info>Database information correct!</info>');
-
-        return $success;
+        return $this;
     }
 
     /**
@@ -268,86 +214,14 @@ class NewCommand extends Command
         $password = $this->helper->ask($this->input, $this->output, $password);
         $email = $this->helper->ask($this->input, $this->output, $email);
 
-        // Set the site URL, since we cannot guess it in command line.
-        define('WP_SITEURL', $url);
+        $process = new Process("{$this->wp} core install --url={$url} --title={$blogTitle} --admin_user={$username} --admin_password={$password} --admin_email={$email}", $this->input->getArgument('name'));
+        $process->run();
 
-        // Run the actual Wordpress install function
-        wp_install($blogTitle, $username, $email, false, '', $password);
-        
-        return $this;
-    }
+        if(!$process->isSuccessful()) {
+            $this->output->writeln('<error>'.$process->getErrorOutput().'</error>');
 
-    /**
-     * Create the wp-config.php file with the correct information.
-     *
-     * @return $this
-     */
-    protected function createConfig()
-    {
-        global $table_prefix, $wpdb;
-        $config_file = file( ABSPATH . 'wp-config-sample.php' );
-        $secret_keys = wp_remote_get( 'https://api.wordpress.org/secret-key/1.1/salt/' );
-
-        $secret_keys = explode( "\n", wp_remote_retrieve_body( $secret_keys ) );
-        foreach ( $secret_keys as $k => $v ) {
-            $secret_keys[$k] = substr( $v, 28, 64 );
+            return $this->installWordpress();
         }
-
-        $key = 0;
-        // Not a PHP5-style by-reference foreach, as this file must be parseable by PHP4.
-        foreach ( $config_file as $line_num => $line ) {
-            if ( '$table_prefix  =' == substr( $line, 0, 16 ) ) {
-                $config_file[ $line_num ] = '$table_prefix  = \'' . addcslashes( $table_prefix, "\\'" ) . "';\r\n";
-                continue;
-            }
-
-            if ( ! preg_match( '/^define\(\'([A-Z_]+)\',([ ]+)/', $line, $match ) )
-                continue;
-
-            $constant = $match[1];
-            $padding  = $match[2];
-
-            switch ( $constant ) {
-                case 'DB_NAME'     :
-                case 'DB_USER'     :
-                case 'DB_PASSWORD' :
-                case 'DB_HOST'     :
-                    $config_file[ $line_num ] = "define('" . $constant . "'," . $padding . "'" . addcslashes( constant( $constant ), "\\'" ) . "');\r\n";
-                    break;
-                case 'DB_CHARSET'  :
-                    if ( 'utf8mb4' === $wpdb->charset || ( ! $wpdb->charset && $wpdb->has_cap( 'utf8mb4' ) ) ) {
-                        $config_file[ $line_num ] = "define('" . $constant . "'," . $padding . "'utf8mb4');\r\n";
-                    }
-                    break;
-                case 'AUTH_KEY'         :
-                case 'SECURE_AUTH_KEY'  :
-                case 'LOGGED_IN_KEY'    :
-                case 'NONCE_KEY'        :
-                case 'AUTH_SALT'        :
-                case 'SECURE_AUTH_SALT' :
-                case 'LOGGED_IN_SALT'   :
-                case 'NONCE_SALT'       :
-                    $config_file[ $line_num ] = "define('" . $constant . "'," . $padding . "'" . $secret_keys[$key++] . "');\r\n";
-                    break;
-            }
-        }
-        unset( $line );
-
-        /*
-		 * If this file doesn't exist, then we are using the wp-config-sample.php
-		 * file one level up, which is for the develop repo.
-		 */
-        if ( file_exists( ABSPATH . 'wp-config-sample.php' ) )
-            $path_to_wp_config = ABSPATH . 'wp-config.php';
-        else
-            $path_to_wp_config = dirname( ABSPATH ) . '/wp-config.php';
-
-        $handle = fopen( $path_to_wp_config, 'w' );
-        foreach( $config_file as $line ) {
-            fwrite( $handle, $line );
-        }
-        fclose( $handle );
-        chmod( $path_to_wp_config, 0666 );
 
         return $this;
     }
