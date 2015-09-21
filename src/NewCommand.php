@@ -28,7 +28,6 @@ class NewCommand extends Command
      */
     protected $input;
     protected $helper;
-    protected $wp;
 
     /**
      * Configure the command options.
@@ -56,7 +55,6 @@ class NewCommand extends Command
         $this->output = $output;
         $this->input = $input;
         $this->helper = $this->getHelper('question');
-        $this->wp = preg_replace('~wordpress$~', '', get_included_files()[0])."vendor/bin/wp";
         $this->verifyApplicationDoesntExist(
             $directory = getcwd().'/'.$this->input->getArgument('name'),
             $output
@@ -183,7 +181,7 @@ class NewCommand extends Command
         $dbhost = $this->helper->ask($this->input, $this->output, $dbhost);
         $table_prefix = $this->helper->ask($this->input, $this->output, $dbpref);
 
-        $process = new Process("{$this->wp} core config --dbname={$dbname} --dbuser={$dbuser} --dbpass={$dbpass} --dbhost={$dbhost} --dbprefix={$table_prefix}", $this->input->getArgument('name'));
+        $process = new Process("wp core config --dbname={$dbname} --dbuser={$dbuser} --dbpass={$dbpass} --dbhost={$dbhost} --dbprefix={$table_prefix}", $this->input->getArgument('name'));
         $process->run();
 
         if(!$process->isSuccessful()) {
@@ -214,7 +212,7 @@ class NewCommand extends Command
         $password = $this->helper->ask($this->input, $this->output, $password);
         $email = $this->helper->ask($this->input, $this->output, $email);
 
-        $process = new Process("{$this->wp} core install --url={$url} --title={$blogTitle} --admin_user={$username} --admin_password={$password} --admin_email={$email}", $this->input->getArgument('name'));
+        $process = new Process("wp core install --url={$url} --title={$blogTitle} --admin_user={$username} --admin_password={$password} --admin_email={$email}", $this->input->getArgument('name'));
         $process->run();
 
         if(!$process->isSuccessful()) {
